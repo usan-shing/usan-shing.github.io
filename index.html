@@ -1,199 +1,293 @@
 <!doctype html>
 <html lang="ko">
+
 <head>
-<meta charset="utf-8">
-<title>주간퀘스트</title>
+	<meta charset="utf-8">
+	<title>주간퀘스트</title>
 
-<style>
-  body {
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans KR', Arial, sans-serif;
-    margin: 16px;
-    line-height: 1.4;
-  }
-  h1 {
-    font-size: 22px;
-    margin: 0 0 12px 0;
-    text-align: center;
-  }
-  .controls {
-    margin-bottom: 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .progress {
-    font-size: 16px;
-    font-weight: bold;
-  }
-  button {
-    padding: 10px 16px;
-    border-radius: 8px;
-    border: 1px solid #ccc;
-    background: #f6f6f6;
-    cursor: pointer;
-    font-size: 14px;
-  }
-  button:hover {
-    background: #e6e6e6;
-  }
-  section {
-    margin-bottom: 36px;
-  }
-  .table-container {
-    overflow-x: auto; /* 모바일에서 가로 스크롤 */
-    -webkit-overflow-scrolling: touch;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-  }
-  table {
-    border-collapse: collapse;
-    width: 100%;
-    min-width: 600px; /* 표가 너무 좁아지지 않도록 */
-  }
-  th, td {
-    border: 1px solid #ddd;
-    padding: 6px 8px;
-    vertical-align: top;
-    text-align: center;
-    font-size: 14px;
-    white-space: nowrap;
-  }
-  th {
-    background: #fafafa;
-    position: sticky;
-    top: 0;
-    z-index: 2;
-  }
-  input[type=checkbox] {
-    transform: scale(1.3);
-    cursor: pointer;
-  }
-</style>
+	<style>
+  		body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", Arial, sans-serif; margin:16px; line-height:1.4;}
+  		h1 { font-size:22px; text-align:center; margin-bottom:12px; }
+  			.controls { display:flex; justify-content:space-between; flex-wrap:wrap; margin-bottom:16px; }
+  			.progress { font-size:16px; font-weight:bold; }
+  		button { padding:8px 12px; border-radius:8px; border:1px solid #ccc; background:#f6f6f6; cursor:pointer; font-size:14px; }
+  		button:hover { background:#e6e6e6; }
+  		section { margin-bottom:36px; }
+ 	 		.table-container { overflow-x:auto; border:1px solid #ddd; border-radius:8px; }
+  		table { border-collapse:collapse; width:100%; min-width:600px; }
+  		th, td { border:1px solid #ddd; padding:6px 8px; text-align:center; vertical-align:middle; font-size:14px; white-space:nowrap; }
+  		th { background:#fafafa; position:sticky; top:0; z-index:2; }
+  		input[type=checkbox] { transform:scale(1.3); cursor:pointer; }
+  			.gauge-controls button { margin:0 2px; }
+  			.low-runs { color:red; font-weight:bold; }
+ 			.reward-button { color:blue; cursor:pointer; text-decoration:underline; }
+  			.reward-button:hover { text-decoration:none; color:darkblue; }
+	</style>
 
-<script>
-function saveCheckboxes() {
-  const states = [];
-  document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-    states.push(cb.checked);
-  });
-  localStorage.setItem('checkboxStates', JSON.stringify(states));
-  updateProgress();
-}
+	<script>
+		function saveCheckboxes() {
+  			const states = {};
+  			document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    				if(cb.id) states[cb.id] = cb.checked;
+  			});
+  			localStorage.setItem('checkboxStates', JSON.stringify(states));
+  			updateProgress();
+		}
 
-function loadCheckboxes() {
-  const saved = JSON.parse(localStorage.getItem('checkboxStates') || '[]');
-  document.querySelectorAll('input[type="checkbox"]').forEach((cb, i) => {
-    cb.checked = saved[i] || false;
-  });
-  updateProgress();
-}
+		function loadCheckboxes() {
+  			const saved = JSON.parse(localStorage.getItem('checkboxStates')|| '{}');
+  			document.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked = !!saved[cb.id]);
+  			updateProgress();
+		}
 
-function uncheckAll() {
-  document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-  saveCheckboxes();
-}
+		function uncheckAll() {
+ 			document.querySelectorAll('#Sheet1 input[type="checkbox"], #Sheet3 input[type="checkbox"]').forEach(cb=>cb.checked=false);
+  			document.querySelectorAll('#Sheet2 input[data-character]').forEach(cb=>cb.checked=false);
+  			saveCheckboxes();
+		}
 
-function updateProgress() {
-  const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-  const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
-  const total = checkboxes.length;
-  const percent = total ? Math.round((checked / total) * 100) : 0;
-  document.getElementById('progress').textContent = `진행률: ${checked}/${total} (${percent}%)`;
-}
+		function updateProgress() {
+  			const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+  			const checked = Array.from(checkboxes).filter(cb=>cb.checked).length;
+  			const total = checkboxes.length;
+  			const percent = total ? Math.round((checked/total)*100) : 0;
+  			document.getElementById('progress').textContent = `진행률: ${checked}/${total} (${percent}%)`;
+		}
 
-window.addEventListener('DOMContentLoaded', () => {
-  loadCheckboxes();
-  document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-    cb.addEventListener('change', saveCheckboxes);
-  });
-});
-</script>
+		function calculateGauge(character, checkbox) {
+  			let gaugeValue = parseFloat(localStorage.getItem(`gaugeValue_${character}`)||"0");
+ 			if(checkbox && checkbox.checked) {
+    				gaugeValue += 2.0833333;
+   				if(gaugeValue > 100) gaugeValue = 100;
+    				gaugeValue = parseFloat(gaugeValue.toFixed(2));
+   				localStorage.setItem(`gaugeValue_${character}`, gaugeValue.toString());
+ 			}
+  			updateGaugeDisplay(character);
+		}
+
+		function resetGauge(character) {
+  			localStorage.setItem(`gaugeValue_${character}`,"0");
+  			updateGaugeDisplay(character);
+  			updateProgress();
+		}
+
+		function adjustGauge(character, delta) {
+  			let gaugeValue = parseFloat(localStorage.getItem(`gaugeValue_${character}`)||"0");
+  			gaugeValue += delta;
+  			if(gaugeValue > 100) gaugeValue = 100;
+  			if(gaugeValue < 0) gaugeValue = 0;
+  			gaugeValue = parseFloat(gaugeValue.toFixed(2));
+  			localStorage.setItem(`gaugeValue_${character}`,gaugeValue.toString());
+  			updateGaugeDisplay(character);
+		}
+
+		function updateGaugeDisplay(character) {
+  			let gaugeValue = parseFloat(localStorage.getItem(`gaugeValue_${character}`) || "0");
+  			gaugeValue = Math.min(gaugeValue, 100);
+  			gaugeValue = parseFloat(gaugeValue.toFixed(2));
+
+  			const displayValue = Number(gaugeValue); // Removes trailing zero
+  			document.getElementById(`gaugeValue_${character}`).textContent = `${displayValue}%`;
+
+  			let statusCell = document.getElementById(`gaugeStatus_${character}`);
+  			let statusText = "";
+  			statusCell.className = ""; // reset class
+
+  			if (gaugeValue >= 100) {
+    				statusText = `<span class="reward-button" onclick="resetGauge('${character}')">보상받기</span>`;
+  			} else {
+    				const remainingRuns = Math.round((100 - gaugeValue) / 2.0833333);
+    				statusText = `${remainingRuns}판`;
+
+   				 // 강조: 3판 이하일 때
+    				if (remainingRuns <= 3) {
+      					statusCell.classList.add("low-runs");
+   				}
+  			}
+
+  			statusCell.innerHTML = statusText;
+		}
+
+		function loadGauge() {
+  			['kata','ino','deme'].forEach(updateGaugeDisplay);
+		}
+
+		window.addEventListener('DOMContentLoaded', () => {
+			loadCheckboxes();
+			loadGauge();
+			updateProgress();
+
+			// 모든 체크박스에 저장 이벤트 연결
+			document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+				cb.addEventListener('change', () => {
+					saveCheckboxes();
+				});
+			});
+
+			// Sheet2 전용: gauge 계산도 수행
+			document.querySelectorAll('#Sheet2 input[type="checkbox"]').forEach(cb => {
+				cb.addEventListener('change', () => {
+					const char = cb.dataset.character;
+					if (char && cb.checked) calculateGauge(char, cb);
+				});
+			});
+		});
+	</script>
 </head>
+
 <body>
-<h1>주간퀘스트</h1>
+	<h1>주간퀘스트</h1>
 
-<div class="controls">
-  <span class="progress" id="progress">진행률: 0/0 (0%)</span>
-  <button onclick="uncheckAll()">✅ 전체 체크 해제</button>
-</div>
+	<div class="controls">
+  		<span class="progress" id="progress">진행률:0/0 (0%)</span>
+  		<button onclick="uncheckAll()">✅ 전체 체크 해제</button>
+	</div>
 
-<section id="Sheet1">
-  <div class="table-container">
-    <table class="dataframe">
-      <thead>
-        <tr>
-          <td></td>
-          <td>암습(카타)</td>
-          <td>깝질(이노)</td>
-          <td>윱(데메)</td>
-          <td>머플랭(데메)</td>
-          <td>김볶밥(데메)</td>
-          <td>김치찜(데메)</td>
-          <td>뽁(오마)</td>
-          <td>잇치(매패)</td>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>사원 10판</td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-        </tr>
-        <tr>
-          <td>심연</td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-        </tr>
-        <tr>
-          <td>서펜티움</td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-          <td>x</td>
-          <td>x</td>
-          <td>x</td>
-          <td>x</td>
-          <td>x</td>
-        </tr>
-        <tr>
-          <td>둠 아포리아</td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-          <td><input type="checkbox"></td>
-          <td>x</td>
-          <td>x</td>
-          <td>x</td>
-          <td>x</td>
-          <td>x</td>
-        </tr>
-        <tr>
-          <td>[도전모드]로쏘/베르드</td>
-          <td><input type="checkbox"></td>
-          <td>x</td>
-          <td><input type="checkbox"></td>
-          <td>x</td>
-          <td>x</td>
-          <td>x</td>
-          <td>x</td>
-          <td>x</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</section>
+	<section id="Sheet1">
+  		<div class="table-container">
+    		<table class="dataframe">
+
+      		<thead>
+        		<tr>
+				<td></td>
+				<td>비밀던전</td>
+				<td>사원</td>
+				<td>심연 레이드</td>
+				<td>서펜 레이드</td>
+				<td>도전모드[로쏘/베르드]</td>
+			</tr>
+      		</thead>
+
+      		<tbody>
+        		<tr>
+          			<td>암습(카타)</td>
+          			<td rowspan="3"><input type="checkbox" id="kata_secret"></td>
+          			<td><input type="checkbox" id="kata_temple"></td>
+          			<td><input type="checkbox" id="kata_deep"></td>
+          			<td><input type="checkbox" id="kata_serpen"></td>
+          			<td><input type="checkbox" id="kata_challenge"></td>
+        		</tr>
+        		<tr>
+          			<td>깝질(이노)</td>
+          			<td><input type="checkbox" id="ino_temple"></td>
+          			<td><input type="checkbox" id="ino_deep"></td>
+          			<td><input type="checkbox" id="ino_serpen"></td>
+          			<td><input type="checkbox" id="ino_challenge"></td>
+        		</tr>
+        		<tr>
+          			<td>윱(데메)</td>
+          			<td><input type="checkbox" id="deme_temple"></td>
+          			<td><input type="checkbox" id="deme_deep"></td>
+          			<td><input type="checkbox" id="deme_serpen"></td>
+          			<td><input type="checkbox" id="deme_challenge"></td>
+        		</tr>
+      		</tbody>
+    		</table>
+  		</div>
+	</section>
+
+	<section id="Sheet2">
+  		<div class="table-container">
+    		<table class="dataframe">
+
+      		<thead>
+        		<tr>
+				<td colspan="2"></td>
+				<td>암습(카타)</td>
+				<td>깝질(이노)</td>
+				<td>윱(데메)</td>
+			</tr>
+      		</thead>
+
+      		<tbody>
+        		<tr>
+          			<td rowspan="4">둠 레이드</td>
+          			<td>예언의 초석</td>
+          			<td><input type="checkbox" id="kata_doom1" data-character="kata"></td>
+          			<td><input type="checkbox" id="ino_doom1" data-character="ino"></td>
+          			<td><input type="checkbox" id="deme_doom1" data-character="deme"></td>
+        		</tr>
+        		<tr>
+          			<td>나이트메어: 리셋 룸</td>
+          			<td><input type="checkbox" id="kata_doom2" data-character="kata"></td>
+          			<td><input type="checkbox" id="ino_doom2" data-character="ino"></td>
+          			<td><input type="checkbox" id="deme_doom2" data-character="deme"></td>
+        		</tr>
+        		<tr>
+          			<td>여왕의 알현실</td>
+          			<td><input type="checkbox" id="kata_doom3" data-character="kata"></td>
+          			<td><input type="checkbox" id="ino_doom3" data-character="ino"></td>
+          			<td><input type="checkbox" id="deme_doom3" data-character="deme"></td>
+        		</tr>
+        		<tr>
+          			<td>영락의 탑</td>
+          			<td><input type="checkbox" id="kata_doom4" data-character="kata"></td>
+          			<td><input type="checkbox" id="ino_doom4" data-character="ino"></td>
+          			<td><input type="checkbox" id="deme_doom4" data-character="deme"></td>
+        		</tr>
+        		<tr>
+          			<td rowspan="3">액세서리</td>
+          			<td>게이지</td>
+          			<td id="gaugeValue_kata">0%</td>
+          			<td id="gaugeValue_ino">0%</td>
+          			<td id="gaugeValue_deme">0%</td>
+        		</tr>
+        		<tr>
+          			<td>정가</td>
+          			<td id="gaugeStatus_kata"> 0판</td>
+          			<td id="gaugeStatus_ino"> 0판</td>
+          			<td id="gaugeStatus_deme"> 0판</td>
+        		</tr>
+        		<tr class="gauge-controls">
+          			<td>조작</td>
+          			<td>
+            				<button onclick="adjustGauge('kata',2.0833333)">+</button>
+            				<button onclick="adjustGauge('kata',-2.0833333)">-</button>
+            				<button onclick="resetGauge('kata')">🔄</button>
+          			</td>
+          			<td>
+            				<button onclick="adjustGauge('ino',2.0833333)">+</button>
+            				<button onclick="adjustGauge('ino',-2.0833333)">-</button>
+            				<button onclick="resetGauge('ino')">🔄</button>
+          			</td>
+          			<td>
+            				<button onclick="adjustGauge('deme',2.0833333)">+</button>
+            				<button onclick="adjustGauge('deme',-2.0833333)">-</button>
+            				<button onclick="resetGauge('deme')">🔄</button>
+          			</td>
+        		</tr>
+      		</tbody>
+    		</table>
+  		</div>
+	</section>
+
+	<section id="Sheet3">
+  		<div class="table-container">
+    		<table class="dataframe">
+      		<thead>
+        		<tr>
+				<td></td>
+				<td>머플랭(데메)</td>
+				<td>김볶밥(데메)</td>
+				<td>김치찜(데메)</td>
+				<td>뽁(오마)</td>
+				<td>잇치(매패)</td>
+			</tr>
+      		</thead>
+
+      		<tbody>
+        		<tr>
+          			<td>사원</td>
+         		 	<td><input type="checkbox" id="muf_temple"></td>
+          			<td><input type="checkbox" id="kim_temple"></td>
+          			<td><input type="checkbox" id="kimchi_temple"></td>
+          			<td><input type="checkbox" id="ppok_temple"></td>
+          			<td><input type="checkbox" id="itch_temple"></td>
+        		</tr>
+      		</tbody>
+    		</table>
+  		</div>
+	</section>
 
 </body>
 </html>
